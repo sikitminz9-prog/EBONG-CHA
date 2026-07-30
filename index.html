@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EBONG CHA - AR Menu, Billing & Alerts</title>
+
+    <!-- Google Model Viewer -->
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Courier+Prime&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #2e7d32;
+            --secondary: #ff9800;
+            --dark: #121212;
+            --light: #f5f5f5;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; scroll-behavior: smooth; }
+
+        body { background: var(--light); color: #333; transition: 0.3s; padding-bottom: 100px; }
+        body.dark { background: var(--dark); color: white; }
+
+        .header {
+            position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 25px; background: var(--primary); color: white; box-shadow: 0 5px 20px rgba(0, 0, 0, .2); z-index: 1000;
+        }
+
+        .logo { font-size: 20px; font-weight: 700; }
+        .icon-btn { width: 40px; height: 40px; border: none; border-radius: 50%; background: rgba(255,255,255,0.2); color: white; cursor: pointer; font-size: 18px; }
+
+        .hero { padding: 40px 20px; text-align: center; background: linear-gradient(135deg, #43a047, #66bb6a); color: white; }
+        .search-box { padding: 20px; margin-top: -30px; }
+        #searchFood { width: 100%; padding: 15px; border: none; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); outline: none; }
+
+        .category { display: flex; gap: 10px; overflow-x: auto; padding: 10px 20px; scrollbar-width: none; }
+        .category::-webkit-scrollbar { display: none; }
+        .category-btn { padding: 10px 20px; border: none; border-radius: 25px; background: white; color: var(--primary); font-weight: 600; white-space: nowrap; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .category-btn.active { background: var(--secondary); color: white; }
+
+        .main { padding: 20px; max-width: 600px; margin: auto; }
+        .viewer-box { background: white; border-radius: 25px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        model-viewer { width: 100%; height: 300px; background: #fdfdfd; }
+
+        .food-card { background: white; padding: 25px; border-radius: 25px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        body.dark .food-card, body.dark .viewer-box, body.dark .cart-section, body.dark .category-btn { background: #1f1f1f; color: white; }
+
+        #itemPrice { color: #e53935; font-size: 24px; font-weight: 700; margin: 10px 0; }
+        .food-buttons { display: flex; gap: 10px; margin-top: 15px; }
+        .btn-main { flex: 1; padding: 15px; border: none; border-radius: 15px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-cart { background: var(--primary); color: white; }
+        .btn-waiter { background: var(--secondary); color: white; }
+        .btn-print { background: #555; color: white; margin-top: 10px; width: 100%; }
+
+        .cart-section { margin-top: 25px; background: white; padding: 20px; border-radius: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .qty-controls button { width: 30px; height: 30px; border: 1px solid #ddd; background: white; border-radius: 5px; cursor: pointer; }
+
+        .tracking-card { margin-top: 20px; padding: 20px; background: #fff8e1; border-left: 5px solid var(--secondary); border-radius: 15px; display: none; }
+        #orderProgress { width: 100%; height: 10px; border-radius: 5px; accent-color: var(--primary); }
+        .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; background: var(--secondary); color: white; }
+
+        /* PRINT BILL STYLING */
+        @media print {
+            body * { visibility: hidden; }
+            #receiptTemplate, #receiptTemplate * { visibility: visible; }
+            #receiptTemplate { position: absolute; left: 0; top: 0; width: 100%; }
+        }
+        #receiptTemplate { display: none; padding: 20px; background: white; width: 300px; margin: auto; border: 1px dashed #333; font-family: 'Courier Prime', monospace; color: black; }
+    </style>
+</head>
+
+<body>
+
+    <header class="header">
+        <div class="logo">🍽️ EBONG CHA</div>
+        <button id="darkModeBtn" class="icon-btn">🌙</button>
+    </header>
+
+    <section class="hero">
+        <h1>AR Dining Experience</h1>
+        <p>Interactive Menu & Smart Billing</p>
+    </section>
+
+    <section class="search-box">
+        <input type="text" id="searchFood" placeholder="🔍 Search food items...">
+    </section>
+
+    <section class="category" id="categoryList">
+        <button class="category-btn active" onclick="selectItem(this, 'pizza.glb','🍕 Pizza', 250, 'Fresh Italian Pizza')">🍕 Pizza</button>
+        <button class="category-btn" onclick="selectItem(this, 'burger.glb','🍔 Burger', 200, 'Double Beef Burger')">🍔 Burger</button>
+        <button class="category-btn" onclick="selectItem(this, 'drink.glb','🍹 Drink', 120, 'Lime Juice')">🍹 Drink</button>
+        <button class="category-btn" onclick="selectItem(this, 'dessert.glb','🍰 Dessert', 100, 'Creamy Dessert')">🍰 Dessert</button>
+        <button class="category-btn" onclick="selectItem(this, 'sandwich.glb','🥪 Sandwich', 150, 'Paneer Sandwich')">🥪 Sandwich</button>
+        <button class="category-btn" onclick="selectItem(this, 'spicy_ramen_noodle.glb','🍜 Spicy Ramen Noodle', 200, 'Delicious Spicy Ramen Noodle')">🍜 Spicy Ramen Noodle</button>
+        <button class="category-btn" onclick="selectItem(this, 'ice_cream.glb','🍨 Ice Cream', 150, 'Soft Venilla Ice  Cream')">🍨 Ice Cream</button>
+        <button class="category-btn" onclick="selectItem(this, 'french_fries.glb','🍟 French Fries', 120, 'Crispy French Fries')">🍟 French Fries</button>
+         <button class="category-btn" onclick="selectItem(this, 'momo_food.glb','🍣 Momo', 150, 'Juicy Chicken Momo')">🍣 Juicy Chicken Momo</button>
+        
+        
+        
+    </section>
+
+    <div class="main">
+        <div class="viewer-box">
+            <model-viewer id="viewer" src="pizza.glb" camera-controls auto-rotate ar shadow-intensity="1">
+                <button slot="ar-button" style="position: absolute; bottom: 10px; right: 10px; padding: 8px; border-radius: 5px; border:none; background:white;">👋 View AR</button>
+            </model-viewer>
+        </div>
+
+        <div class="food-card">
+            <h2 id="itemTitle">🍕 Pizza</h2>
+            <p id="itemDescription" style="color: #777;">Fresh Italian Pizza</p>
+            <h3 id="itemPrice">₹250</h3>
+            <div class="food-buttons">
+                <button class="btn-main btn-cart" id="addCartBtn">🛒 Add to Cart</button>
+                <button class="btn-main btn-waiter" onclick="callWaiter()">🙋 Call Waiter</button>
+            </div>
+        </div>
+
+        <div class="cart-section">
+            <h3>🛒 Your Basket</h3>
+            <div id="cartItems"><p style="color:#999; font-size: 14px;">Empty basket</p></div>
+            <div style="margin-top:20px;">
+                <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:18px;">
+                    <span>Total:</span><span>₹<span id="totalPrice">0</span></span>
+                </div>
+                <input type="number" id="tableNumber" placeholder="Enter Table Number" style="width:100%; padding:12px; margin-top:15px; border-radius:10px; border:1px solid #ddd;">
+                <button class="btn-main btn-cart" id="placeOrderBtn" style="width:100%; margin-top:10px;">📲 Confirm Order</button>
+                <button class="btn-main btn-print" onclick="generateBill()">🖨️ Print Bill</button>
+            </div>
+        </div>
+
+        <div id="trackingCard" class="tracking-card">
+            <h4>📦 Order Status</h4>
+            <p>Status: <span id="orderStatus" class="status-badge">Processing</span></p>
+            <progress id="orderProgress" value="20" max="100"></progress>
+            <p id="trackingMsg" style="font-size: 12px; margin-top: 5px; color: #666;">Sending to kitchen...</p>
+        </div>
+    </div>
+
+    <!-- Receipt for Printing -->
+    <div id="receiptTemplate">
+        <center><h2>EBONG CHA</h2><p>Order Receipt</p><p id="billDate"></p></center>
+        <hr><p><strong>Table: </strong><span id="billTable"></span></p><hr>
+        <table style="width: 100%;" id="billItemsBody"></table>
+        <hr><h3 style="display:flex; justify-content:space-between;">Total: <span>₹<span id="billTotal"></span></span></h3>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, push, onValue, set, onChildAdded } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDfsAV0ZyEUUZiFtXQzzw2Dw7feuspEUXQ",
+            authDomain: "ebong-cha-859e1.firebaseapp.com",
+            projectId: "ebong-cha-859e1",
+            storageBucket: "ebong-cha-859e1.firebasestorage.app",
+            messagingSenderId: "787564854457",
+            appId: "1:787564854457:web:03bad4f21cc216649daf68",
+            databaseURL: "https://ebong-cha-859e1-default-rtdb.asia-southeast1.firebasedatabase.app"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // --- SOUNDS ---
+        const orderSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3');
+        const waiterSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+        const kitchenAlert = new Audio('https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3');
+
+        let cart = [];
+        let currentItem = { name: "🍕 Pizza", price: 250, model: "pizza.glb" };
+
+        window.selectItem = (btn, model, title, price, desc) => {
+            currentItem = { name: title, price: price, model: model };
+            document.getElementById("viewer").src = model;
+            document.getElementById("itemTitle").innerText = title;
+            document.getElementById("itemPrice").innerText = "₹" + price;
+            document.getElementById("itemDescription").innerText = desc;
+            document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        };
+
+        document.getElementById("addCartBtn").onclick = () => {
+            let existing = cart.find(i => i.name === currentItem.name);
+            if (existing) existing.qty++; else cart.push({ ...currentItem, qty: 1 });
+            renderCart();
+        };
+
+        function renderCart() {
+            const container = document.getElementById("cartItems");
+            let total = 0;
+            if (cart.length === 0) { container.innerHTML = "Empty basket"; document.getElementById("totalPrice").innerText = "0"; return; }
+            container.innerHTML = cart.map((item, index) => {
+                total += item.price * item.qty;
+                return `<div class="cart-item"><div>${item.name}</div><div class="qty-controls"><button onclick="updateQty(${index},-1)">-</button> ${item.qty} <button onclick="updateQty(${index},1)">+</button></div></div>`;
+            }).join('');
+            document.getElementById("totalPrice").innerText = total;
+        }
+
+        window.updateQty = (index, val) => { cart[index].qty += val; if (cart[index].qty < 1) cart.splice(index, 1); renderCart(); };
+
+        // 1. PLACE ORDER WITH SOUND
+        document.getElementById("placeOrderBtn").onclick = () => {
+            const table = document.getElementById("tableNumber").value;
+            if (!table || cart.length === 0) return alert("Enter Table Number & Items!");
+
+            const newOrderRef = push(ref(db, 'orders'));
+            set(newOrderRef, { table, items: cart, total: document.getElementById("totalPrice").innerText, status: "Received", time: Date.now() })
+            .then(() => {
+                orderSound.play(); // Play success sound
+                alert("Order Sent!");
+                startTracking(newOrderRef.key);
+                cart = []; renderCart();
+            });
+        };
+
+        // 2. CALL WAITER WITH SOUND
+        window.callWaiter = () => {
+            const table = document.getElementById("tableNumber").value;
+            if (!table) return alert("Enter Table Number!");
+            push(ref(db, 'waiter_calls'), { table, time: new Date().toLocaleTimeString(), status: "Pending" })
+            .then(() => {
+                waiterSound.play(); // Play bell sound
+                alert("Waiter is coming!");
+            });
+        };
+
+        // 3. KITCHEN LISTENER (Plays sound when ANY new order arrives)
+        // This is great if a tablet is kept at the counter
+        let firstLoad = true;
+        onChildAdded(ref(db, 'orders'), (data) => {
+            if (!firstLoad) {
+                kitchenAlert.play().catch(e => console.log("Sound blocked by browser until first click"));
+            }
+        });
+        setTimeout(() => { firstLoad = false; }, 2000); 
+
+        function startTracking(id) {
+            document.getElementById("trackingCard").style.display = "block";
+            onValue(ref(db, 'orders/' + id), (snap) => {
+                const s = snap.val(); if (!s) return;
+                document.getElementById("orderStatus").innerText = s.status;
+                if (s.status === "Cooking") { document.getElementById("orderProgress").value = 60; document.getElementById("trackingMsg").innerText = "Chef is cooking... 🔥"; }
+                if (s.status === "Served") { document.getElementById("orderProgress").value = 100; document.getElementById("trackingMsg").innerText = "Enjoy your food! 🍽️"; }
+            });
+        }
+
+        window.generateBill = () => {
+            const table = document.getElementById("tableNumber").value;
+            if (!table) return alert("Enter Table Number");
+            document.getElementById("billDate").innerText = new Date().toLocaleString();
+            document.getElementById("billTable").innerText = table;
+            document.getElementById("billTotal").innerText = document.getElementById("totalPrice").innerText;
+            document.getElementById("billItemsBody").innerHTML = cart.map(i => `<tr><td>${i.name}</td><td>x${i.qty}</td><td>₹${i.price*i.qty}</td></tr>`).join('');
+            document.getElementById("receiptTemplate").style.display = "block";
+            window.print();
+            document.getElementById("receiptTemplate").style.display = "none";
+        };
+
+        document.getElementById("darkModeBtn").onclick = () => document.body.classList.toggle("dark");
+    </script>
+</body>
+</html>
