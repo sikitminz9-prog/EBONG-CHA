@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EBONG CHA - Admin Dashboard</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #2e7d32;
+            --secondary: #ff9800;
+            --danger: #e53935;
+            --dark: #121212;
+            --light: #f4f7f6;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+
+        body { background: var(--light); color: #333; }
+
+        /* Header */
+        .header {
+            background: var(--primary);
+            color: white;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .stats-bar {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1200px;
+            margin: auto;
+        }
+
+        .stat-card {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .stat-card h3 { font-size: 28px; color: var(--primary); }
+
+        /* Main Layout */
+        .container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1200px;
+            margin: auto;
+        }
+
+        @media (max-width: 900px) {
+            .container { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            min-height: 400px;
+        }
+
+        h2 { margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+
+        /* Order Cards */
+        .order-card {
+            border: 1px solid #eee;
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: 0.3s;
+        }
+
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 700;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+
+        .status-Received { color: #2196f3; }
+        .status-Cooking { color: var(--secondary); }
+        .status-Served { color: var(--primary); }
+
+        .item-list { font-size: 14px; margin: 10px 0; }
+
+        .btn-group { display: flex; gap: 10px; margin-top: 15px; }
+
+        button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+            transition: 0.2s;
+        }
+
+        .btn-cook { background: #fff3e0; color: #ef6c00; }
+        .btn-serve { background: #e8f5e9; color: #2e7d32; }
+        .btn-delete { background: #ffebee; color: #c62828; }
+
+        /* Waiter Calls */
+        .waiter-item {
+            background: #fff8e1;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 5px solid var(--secondary);
+        }
+
+        /* Sound Alert Button Overlay */
+        #audioOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); color: white;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="audioOverlay">
+        <h1>Ebong Cha Admin Panel</h1>
+        <p>Click to start the dashboard and enable alert sounds</p>
+        <button onclick="startAdmin()" style="padding: 15px 40px; font-size: 18px; background: var(--primary); color: white; margin-top: 20px;">Start Dashboard</button>
+    </div>
+
+    <header class="header">
+        <div class="logo">🍽️ EBONG CHA ADMIN</div>
+        <div id="liveClock">00:00:00</div>
+    </header>
+
+    <section class="stats-bar">
+        <div class="stat-card">
+            <p>Active Orders</p>
+            <h3 id="countOrders">0</h3>
+        </div>
+        <div class="stat-card">
+            <p>Waiter Calls</p>
+            <h3 id="countCalls">0</h3>
+        </div>
+    </section>
+
+    <main class="container">
+        <!-- Orders Panel -->
+        <div class="panel">
+            <h2>🔥 Live Kitchen Orders</h2>
+            <div id="ordersList">
+                <p style="color: #999;">Waiting for new orders...</p>
+            </div>
+        </div>
+
+        <!-- Waiter Calls Panel -->
+        <div class="panel">
+            <h2>🙋 Waiter Calls</h2>
+            <div id="waiterList">
+                <p style="color: #999;">No active calls.</p>
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDfsAV0ZyEUUZiFtXQzzw2Dw7feuspEUXQ",
+            authDomain: "ebong-cha-859e1.firebaseapp.com",
+            projectId: "ebong-cha-859e1",
+            storageBucket: "ebong-cha-859e1.firebasestorage.app",
+            messagingSenderId: "787564854457",
+            appId: "1:787564854457:web:03bad4f21cc216649daf68",
+            databaseURL: "https://ebong-cha-859e1-default-rtdb.asia-southeast1.firebasedatabase.app"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Sound Files
+        const newOrderSound = new Audio('https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3');
+        const newCallSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+
+        window.startAdmin = function() {
+            document.getElementById('audioOverlay').style.display = 'none';
+            listenToData();
+        };
+
+        let lastOrderCount = -1;
+        let lastCallCount = -1;
+
+        function listenToData() {
+            // Clock
+            setInterval(() => {
+                document.getElementById('liveClock').innerText = new Date().toLocaleTimeString();
+            }, 1000);
+
+            // Listen to Orders
+            onValue(ref(db, 'orders'), (snapshot) => {
+                const data = snapshot.val();
+                renderOrders(data);
+                
+                // Play sound if new order arrives
+                const currentCount = data ? Object.keys(data).length : 0;
+                if (lastOrderCount !== -1 && currentCount > lastOrderCount) {
+                    newOrderSound.play();
+                }
+                lastOrderCount = currentCount;
+                document.getElementById('countOrders').innerText = currentCount;
+            });
+
+            // Listen to Waiter Calls
+            onValue(ref(db, 'waiter_calls'), (snapshot) => {
+                const data = snapshot.val();
+                renderWaiterCalls(data);
+
+                // Play sound if new call arrives
+                const currentCount = data ? Object.keys(data).length : 0;
+                if (lastCallCount !== -1 && currentCount > lastCallCount) {
+                    newCallSound.play();
+                }
+                lastCallCount = currentCount;
+                document.getElementById('countCalls').innerText = currentCount;
+            });
+        }
+
+        function renderOrders(orders) {
+            const container = document.getElementById('ordersList');
+            if (!orders) {
+                container.innerHTML = `<p style="color: #999;">No active orders.</p>`;
+                return;
+            }
+
+            let html = "";
+            Object.keys(orders).reverse().forEach(id => {
+                const order = orders[id];
+                const itemsHtml = order.items.map(i => `• ${i.name} (x${i.qty})`).join('<br>');
+                
+                html += `
+                    <div class="order-card">
+                        <div class="order-header">
+                            <span>TABLE ${order.table}</span>
+                            <span class="status-${order.status}">${order.status.toUpperCase()}</span>
+                        </div>
+                        <div class="item-list">${itemsHtml}</div>
+                        <div style="font-weight:bold; margin: 10px 0;">Total: ₹${order.total}</div>
+                        <div class="btn-group">
+                            <button class="btn-cook" onclick="updateStatus('${id}', 'Cooking')">Start Cooking</button>
+                            <button class="btn-serve" onclick="updateStatus('${id}', 'Served')">Mark Served</button>
+                            <button class="btn-delete" onclick="deleteOrder('${id}')">Clear Order</button>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function renderWaiterCalls(calls) {
+            const container = document.getElementById('waiterList');
+            if (!calls) {
+                container.innerHTML = `<p style="color: #999;">No active calls.</p>`;
+                return;
+            }
+
+            let html = "";
+            Object.keys(calls).reverse().forEach(id => {
+                const call = calls[id];
+                html += `
+                    <div class="waiter-item">
+                        <div>
+                            <strong>Table ${call.table}</strong><br>
+                            <small>${call.time}</small>
+                        </div>
+                        <button class="btn-delete" onclick="deleteCall('${id}')">Resolved</button>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        // Global functions for buttons
+        window.updateStatus = (id, status) => {
+            update(ref(db, `orders/${id}`), { status: status });
+        };
+
+        window.deleteOrder = (id) => {
+            if(confirm("Delete this order record?")) remove(ref(db, `orders/${id}`));
+        };
+
+        window.deleteCall = (id) => {
+            remove(ref(db, `waiter_calls/${id}`));
+        };
+
+    </script>
+</body>
+</html>
